@@ -1,47 +1,60 @@
 from math import sqrt
 ##### Distancia Euclidiana #####
-# Returns a distance-based similarity score for person1 and person2
+"""
+Regresa un puntuaje de similaridad para una persona1 y una persona2 basado en la distancia
+Parametros:
+    prefs - Un diccionario con personas y sus puntuajes en diferentes objetos.
+    person1, person2 - La personas que se van a comparar.
+"""
 def sim_distance(prefs,person1,person2):
-    # Get the list of shared_items
+    # Crea una lista vacia
     si={}
+
+    #Aqui busca que objetos tienen en comun.
     for item in prefs[person1]:
         if item in prefs[person2]:
+            #Si tienen un objeto en comun se agrega a la lista con el valor 1.
             si[item]=1
 
-    # if they have no ratings in common, return 0
+    # Si no tienen un objeto en comun, regresa 0
     if len(si)==0: return 0
 
-    # Add up the squares of all the differences
+    # Aqui suma los cuadrados de la diferencias de las personas
     sum_of_squares=sum([pow(prefs[person1][item]-prefs[person2][item],2)
-    for item in prefs[person1] if item in prefs[person2]])
-    return 1/(1+sum_of_squares)
+                        for item in prefs[person1] if item in prefs[person2]])
+    return 1/(1 + sum_of_squares)
 
 ##### Pearson Correlation Score#####
-# Returns the Pearson correlation coefficient for p1 and p2
+"""
+Esta funcion regresa la correlacion de Pearson entre dos personas.
+Parametros:
+    prefs - Un diccionario con personas y sus preferencias
+    p1, p2 - Personas a comparar
+"""
 def sim_pearson(prefs,p1,p2):
-    # Get the list of mutually rated items
+    # Consigue una lista con los objetos en comun
     si={}
     for item in prefs[p1]:
         if item in prefs[p2]: si[item]=1
 
-    # Find the number of elements
+    # Cuenta los objetos en comun
     n=len(si)
 
-    # if they are no ratings in common, return 0
+    # Si no tienen algo en comun regresa 0
     if n==0: return 0
 
-    # Add up all the preferences
+    # Suma las preferencias de cada persona
     sum1=sum([prefs[p1][it] for it in si])
     sum2=sum([prefs[p2][it] for it in si])
 
-    # Sum up the squares
+    # Suma el cuadrado de cada preferencia de cada persona
     sum1Sq=sum([pow(prefs[p1][it],2) for it in si])
     sum2Sq=sum([pow(prefs[p2][it],2) for it in si])
 
-    # Sum up the products
+    # Suma el producto de preferencias de dos personas.
     pSum=sum([prefs[p1][it]*prefs[p2][it] for it in si])
 
-    # Calculate Pearson score
+    # Calcula la correlacion de Pearson
     num=pSum-(sum1*sum2/n)
     den=sqrt((sum1Sq-pow(sum1,2)/n)*(sum2Sq-pow(sum2,2)/n))
     if den==0: return 0
@@ -49,32 +62,51 @@ def sim_pearson(prefs,p1,p2):
     return r
 
 ##### Calificar criticos #####
-# Returns the best matches for person from the prefs dictionary.
-# Number of results and similarity function are optional params.
+"""
+Funcion que regresa personas con gustos similares
+Parametros:
+    prefs - Diccionario con personas y sus preferencias
+    person - Persona a comparar
+    Opcionales:
+        n - Numero de resultados deseados, por default es 5
+        similarity = Metodo de comparacion, por default es Pearson
+"""
 def topMatches(prefs,person,n=5,similarity=sim_pearson):
+    # Crea una lista con las personas y que tan similares son con la persona deseada.
     scores=[(similarity(prefs,person,other),other)
                 for other in prefs if other!=person]
-    # Sort the list so the highest scores appear at the top
+
+    # Organiza la lista para que los que tengan un score alto queden primero
     scores.sort( )
     scores.reverse( )
     return scores[0:n]
 
 ##### Recomendaciones #####
-# Gets recommendations for a person by using a weighted average
-# of every other user's rankings
+"""
+Funcion que regresa recomendaciones para una persona utilizando una normal con peso
+basada en las preferncias de otras personas.
+
+Parametros:
+    prefs - Diccionario con personas y sus preferncias
+    person - Persona a la que le vamos a recomendar
+    [Opcional] similarity - Metodo de comparacion, por default es Pearson
+"""
 def getRecommendations(prefs,person,similarity=sim_pearson):
     totals={}
     simSums={}
+    #Inicia la comparacion entre las personas
     for other in prefs:
-        # don't compare me to myself
+        # Evitar que 'person' se compare con si mismo
         if other==person: continue
+
+        # Obtiene que tan similar es 'other' con 'person'
         sim=similarity(prefs,person,other)
 
-        # ignore scores of zero or lower
+        # Ignora puntuajes de 0 o menor
         if sim<=0: continue
-        for item in prefs[other]:
 
-            # only score movies I haven't seen yet
+        for item in prefs[other]:
+            # Solo toma en cuenta objetos que 'person' no tiene
             if item not in prefs[person] or prefs[person][item]==0:
                 # Similarity * Score
                 totals.setdefault(item,0)
@@ -83,10 +115,11 @@ def getRecommendations(prefs,person,similarity=sim_pearson):
                 # Sum of similarities
                 simSums.setdefault(item,0)
                 simSums[item]+=sim
-    # Create the normalized list
+
+    # Crea una lista normalizada
     rankings=[(total/simSums[item],item) for item,total in totals.items( )]
 
-    # Return the sorted list
+    # Regresa la lista organizada
     rankings.sort()
     rankings.reverse()
     return rankings
@@ -103,35 +136,46 @@ def transformPrefs(prefs):
     return result
 
 ##### Construir un dataset para comparar items #####
+"""
+Funcion que regresa un diccionario de objetos que muestra que otros objetos son similares a el.
+Parametros:
+    prefs - Diccionario con personas y sus preferencias
+"""
 def calculateSimilarItems(prefs,n=10):
-    # Create a dictionary of items showing which other items they
-    # are most similar to.
     result={}
 
-    # Invert the preference matrix to be item-centric
+    # Invierte el diccionario para que se centrada en los objetos y no en las personas.
     itemPrefs=transformPrefs(prefs)
     c=0
+
     for item in itemPrefs:
-        # Status updates for large datasets
+        # La variable c es usada para dar informacion del status para datasets grandes
         c+=1
+        # Imprime un status si es necesario
         if c%100==0: print "%d / %d" % (c,len(itemPrefs))
-        # Find the most similar items to this one
+        # Busca otros objetos similares
         scores=topMatches(itemPrefs,item,n=n,similarity=sim_distance)
         result[item]=scores
     return result
 
-##### Recomienda items usando el dataset de la funcion anterior. #####
+"""
+Recomienda objetos usando el dataset de la funcion anterior.
+Parametros:
+    prefs - Diccionario con personas y sus preferncias
+    itemMatch - Diccionario con objetos y sus objetos que son similares
+    user - Persona a la que le vamos a recomendar
+"""
 def getRecommendedItems(prefs,itemMatch,user):
     userRatings=prefs[user]
     scores={}
     totalSim={}
 
-    # Loop over items rated by this user
+    # Obtiene los objetos que el usuario ha calificado para comparar
     for (item,rating) in userRatings.items( ):
 
-        # Loop over items similar to this one
+        # Busca objetos similares
         for (similarity,item2) in itemMatch[item]:
-            # Ignore if this user has already rated this item
+            # Ignora objetos que el usuario ya ha calificado
             if item2 in userRatings: continue
 
             # Weighted sum of rating times similarity
@@ -149,6 +193,8 @@ def getRecommendedItems(prefs,itemMatch,user):
     rankings.sort( )
     rankings.reverse( )
     return rankings
+
+
 
 # A dictionary of movie critics and their ratings of a small
 # set of movies
